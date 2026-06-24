@@ -1,0 +1,150 @@
+| ============================================================
+| FILE: threat-detection-queries.spl
+| Project: Home SIEM Lab — Splunk Enterprise
+| Author: Shyam Ravi
+| Description: SPL queries for detecting common attack patterns
+| ============================================================
+
+
+| ------------------------------------------------------------
+| 1. SSH BRUTE-FORCE DETECTION (Ubuntu /var/log/auth.log)
+| ------------------------------------------------------------
+
+| Detect IPs with more than 10 failed SSH login attempts
+index=main sourcetype="linux_secure" "Failed password"
+| stats count by src_ip, user
+| where count > 10
+| sort -count
+
+| ------------------------------------------------------------
+
+| Brute-force followed by successful login (account compromise indicator)
+index=main sourcetype="linux_secure" ("Failed password" OR "Accepted password")
+| stats count(eval(match(_raw,"Failed"))) as failures,
+        count(eval(match(_raw,"Accepted"))) as successes by src_ip, user
+| where failures > 5 AND successes >= 1
+| eval risk="HIGH - Possible successful brute-force"
+| table src_ip, user, failures, successes, risk
+
+| ------------------------------------------------------------
+
+| Brute-force timeline — volume per minute (spot automation)
+index=main sourcetype="linux_secure" "Failed password"
+| bucket _time span=1m
+| stats count by _time, src_ip
+| where count > 5
+| sort -_time
+
+| ------------------------------------------------------------
+
+
+| ------------------------------------------------------------
+| 2. SUSPICIOUS POWERSHELL EXECUTION (Windows 10)
+| ------------------------------------------------------------
+
+| Detect encoded or bypass PowerShell commands (Event ID 4688)
+index=main sourcetype="WinEventLog:Security" EventCode=4688
+CommandLine="*powershell*"
+    (CommandLine="*-enc*"
+    OR CommandLine="*-EncodedCommand*"
+    OR CommandLine="*bypass*"
+    OR CommandLine="*hidden*"
+    OR CommandLine="*-nop*"
+    OR CommandLine="*IEX*"
+    OR CommandLine="*Invoke-Expression*"
+    OR CommandLine="*DownloadString*")
+| table _time, ComputerName, User, ParentProcessName, CommandLine
+| sort -_time
+
+| ------------------------------------------------------------
+
+| PowerShell spawned by unusual parent processes (Word, Excel, browsers)
+index=main sourcetype="WinEventLog:Security" EventCode=4688
+NewProcessName="*powershell.exe*"
+    (ParentProcessName="*winword.exe*"
+    OR ParentProcessName="*excel.exe*"
+    OR ParentProcessName="*chrome.exe*"
+    OR ParentProcessName="*outlook.exe*"
+    OR ParentProcessName="*mshta.exe*")
+| table _time, ComputerName, User, ParentProcessName, NewProcessName, CommandLine
+| sort -_time
+
+| ------------------------------------------------------------
+
+| PowerShell Script Block Logging — suspicious keywords (Event ID 4104)
+index=main sourcetype="WinEventLog:Microsoft-Windows-PowerShell/Operational" EventCode=4104
+    (ScriptBlockText="*Invoke-Mimikatz*"
+    OR ScriptBlockText="*Net.WebClient*"
+    OR ScriptBlockText="*DownloadFile*"
+    OR ScriptBlockText="*shellcode*"
+    OR ScriptBlockText="*FromBase64String*")
+| table _time, ComputerName, User, ScriptBlockText
+| sort -_time
+
+| ------------------------------------------------------------
+
+
+| ------------------------------------------------------------
+| 3. MALWARE BEACONING DETECTION (Windows 10)
+| ------------------------------------------------------------
+
+| Detect regular periodic connections to the same external IP
+index=main sourcetype="WinEventLog"
+| bucket _time span=1m
+| stats count by _time, dest_ip, src_ip
+| eventstats avg(count) as avg_count, stdev(count) as stdev_count by dest_ip
+| where count > (avg_count + stdev_count)
+| table _time, src_ip, dest_ip, count, avg_count
+| sort -_time
+
+| ------------------------------------------------------------
+
+| High connection frequency to a single external IP (C2 indicator)
+index=main sourcetype="WinEventLog"
+| stats count by dest_ip, src_ip
+| where count > 50
+| sort -count
+
+| ------------------------------------------------------------
+
+| Detect consistent byte-size connections (beaconing signature)
+index=main sourcetype="WinEventLog"
+| stats count, avg(bytes) as avg_bytes, stdev(bytes) as stdev_bytes by dest_ip
+| where stdev_bytes < 50 AND count > 20
+| eval beacon_indicator="Consistent payload size — possible beacon"
+| table dest_ip, count, avg_bytes, stdev_bytes, beacon_indicator
+
+| ------------------------------------------------------------
+
+
+| ------------------------------------------------------------
+| 4. GENERAL IOC HUNTING
+| ------------------------------------------------------------
+
+| Search for known malicious IPs across all logs
+index=main (src_ip="<MALICIOUS_IP>" OR dest_ip="<MALICIOUS_IP>")
+| table _time, host, sourcetype, src_ip, dest_ip, _raw
+| sort -_time
+
+| ------------------------------------------------------------
+
+| Failed logins across ALL hosts (both Windows and Ubuntu)
+index=main (EventCode=4625 OR "Failed password")
+| stats count by host, sourcetype, user, src_ip
+| where count > 5
+| sort -count
+
+| ------------------------------------------------------------
+
+| New user account creation (persistence indicator — Windows)
+index=main sourcetype="WinEventLog:Security" EventCode=4720
+| table _time, ComputerName, TargetUserName, SubjectUserName
+| sort -_time
+
+| ------------------------------------------------------------
+
+| Privilege escalation — user added to admin group (Windows)
+index=main sourcetype="WinEventLog:Security" EventCode=4732
+| table _time, ComputerName, TargetUserName, MemberName, SubjectUserName
+| sort -_time
+
