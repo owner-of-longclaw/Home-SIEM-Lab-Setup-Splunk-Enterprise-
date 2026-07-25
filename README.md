@@ -165,6 +165,34 @@ index=main sourcetype="WinEventLog"
 `Splunk Enterprise` `Universal Forwarder` `SPL` `Windows Event Logs` `Syslog` `PowerShell` `MITRE ATT&CK`
 
 ---
+MIT License
+
+Copyright (c) 2026 Shyam Ravi
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software to use, copy,
+modify, merge, publish, distribute, and/or sublicense
+for any purpose, subject to the following conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY
+OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE
+FOR ANY DAMAGES ARISING FROM USE OF THIS SOFTWARE.
+
+
+## ⚠️ Disclaimer
+
+This project is built purely for **educational and research purposes** in a controlled home environment.
+
+- All attack simulations were performed ONLY on systems I personally own and operate
+- No unauthorized systems were accessed
+- All findings are simulated in an isolated lab
+- This tool is NOT intended for malicious use
+
+The author takes NO responsibility for misuse of this project or any damage caused by applying these techniques outside of authorized environments.
+
 
 ## 👤 Author
 
