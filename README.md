@@ -108,7 +108,7 @@ CommandLine="*powershell*" (CommandLine="*-enc*" OR CommandLine="*-EncodedComman
 
 ---
 
-### 3. Malware Beaconing
+### 3. Simulated C2 Beaconing Detection.
 
 **What was done:**
 Simulated periodic outbound network connections (beaconing behavior) from the Windows host to mimic malware checking in with a C2 (Command & Control) server at regular intervals.
